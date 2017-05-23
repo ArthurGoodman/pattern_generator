@@ -75,31 +75,29 @@ signals:
     void renderFinished();
 
 private:
-    QPoint translateForward(QPoint p) {
-        return QPoint(p.x() % windowSize - windowSize / 2, p.y() % windowSize - windowSize / 2);
-    }
+    //    QPoint translateForward(QPoint p) {
+    //        return QPoint(p.x() % windowSize - windowSize / 2, p.y() % windowSize - windowSize / 2);
+    //    }
 
-    QPoint rotate(QPoint p) {
-        double a = M_PI / 2;
+    //    QPoint rotate(QPoint p) {
+    //        double a = M_PI / 2;
 
-        double sina = sin(a);
-        double cosa = cos(a);
+    //        double sina = sin(a);
+    //        double cosa = cos(a);
 
-        return QPoint(cosa * p.x() - sina * p.y(), sina * p.x() + cosa * p.y());
-    }
+    //        return QPoint(cosa * p.x() - sina * p.y(), sina * p.x() + cosa * p.y());
+    //    }
 
-    QPoint translateBack(QPoint p) {
-        return QPoint(p.x() + p.x() / windowSize * windowSize + windowSize / 2, p.y() + p.y() / windowSize * windowSize + windowSize / 2);
-    }
+    //    QPoint translateBack(QPoint p) {
+    //        return QPoint(p.x() + p.x() / windowSize * windowSize + windowSize / 2, p.y() + p.y() / windowSize * windowSize + windowSize / 2);
+    //    }
 
     void advance() {
         for (int x = 0; x < bufferWidth; x++)
             for (int y = 0; y < bufferHeight; y++) {
                 int c = read(x, y);
 
-                QPoint p = translateBack(rotate(translateForward(QPoint(x, y))));
-
-                if (c != read(p.x(), p.y()))
+                if (c != read(x - windowSize, y - windowSize))
                     write(x, y, qrand() % mod);
                 else
                     write(x, y, c);
@@ -215,6 +213,9 @@ protected:
     void paintEvent(QPaintEvent *) {
         QPainter p(this);
         p.fillRect(rect(), Qt::lightGray);
+
+        if (pixmap.isNull())
+            return;
 
         double wr = (double) width() / height();
         double pr = (double) pixmap.width() / pixmap.height();
