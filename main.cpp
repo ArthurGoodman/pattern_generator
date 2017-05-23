@@ -75,16 +75,21 @@ signals:
     void renderFinished();
 
 private:
-    QPoint rotate(int x, int y) {
-        x = x % bufferWidth - windowSize / 2;
-        y = y % bufferHeight - windowSize / 2;
+    QPoint translateForward(QPoint p) {
+        return QPoint(p.x() % windowSize - windowSize / 2, p.y() % windowSize - windowSize / 2);
+    }
 
+    QPoint rotate(QPoint p) {
         double a = M_PI / 2;
 
         double sina = sin(a);
         double cosa = cos(a);
 
-        return QPoint(cosa * x - sina * y + x / bufferWidth * bufferWidth + windowSize / 2, sina * x + cosa * y + y / bufferWidth * bufferWidth + windowSize / 2);
+        return QPoint(cosa * p.x() - sina * p.y(), sina * p.x() + cosa * p.y());
+    }
+
+    QPoint translateBack(QPoint p) {
+        return QPoint(p.x() + p.x() / windowSize * windowSize + windowSize / 2, p.y() + p.y() / windowSize * windowSize + windowSize / 2);
     }
 
     void advance() {
@@ -92,7 +97,7 @@ private:
             for (int y = 0; y < bufferHeight; y++) {
                 int c = read(x, y);
 
-                QPoint p = rotate(x, y);
+                QPoint p = translateBack(rotate(translateForward(QPoint(x, y))));
 
                 if (c != read(p.x(), p.y()))
                     write(x, y, qrand() % mod);
