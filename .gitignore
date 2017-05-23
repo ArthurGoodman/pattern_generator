@@ -1,0 +1,7 @@
+*.stash
+Makefile*
+*.user
+*.o
+*.exe
+*.moc
+pattern_generator
