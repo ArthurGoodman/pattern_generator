@@ -4,7 +4,7 @@
 static const int bufferWidth = 200, bufferHeight = 200;
 static const int lightValue = 230, darkValue = 40;
 static const int sleepInterval = 16;
-static const int windowSize = 25;
+static const int windowSize = 20;
 static const int mod = 2;
 
 class Worker : public QObject {
@@ -75,12 +75,26 @@ signals:
     void renderFinished();
 
 private:
+    QPoint rotate(int x, int y) {
+        x = x % bufferWidth - windowSize / 2;
+        y = y % bufferHeight - windowSize / 2;
+
+        double a = M_PI / 2;
+
+        double sina = sin(a);
+        double cosa = cos(a);
+
+        return QPoint(cosa * x - sina * y + x / bufferWidth * bufferWidth + windowSize / 2, sina * x + cosa * y + y / bufferWidth * bufferWidth + windowSize / 2);
+    }
+
     void advance() {
         for (int x = 0; x < bufferWidth; x++)
             for (int y = 0; y < bufferHeight; y++) {
                 int c = read(x, y);
 
-                if (c != read(x - windowSize, y - windowSize))
+                QPoint p = rotate(x, y);
+
+                if (c != read(p.x(), p.y()))
                     write(x, y, qrand() % mod);
                 else
                     write(x, y, c);
@@ -200,14 +214,14 @@ protected:
         double wr = (double) width() / height();
         double pr = (double) pixmap.width() / pixmap.height();
 
-        QSize newSize = pixmap.size();
+        QSize newSize;
 
         if (wr < pr)
             newSize = pixmap.size() * width() / pixmap.width();
         else
             newSize = pixmap.size() * height() / pixmap.height();
 
-        p.drawPixmap(rect().center() - QPoint(newSize.width(), newSize.height()) / 2, pixmap.scaled(newSize));
+        p.drawPixmap(rect().center() - QPoint(newSize.width(), newSize.height()) / 2, pixmap.scaled(newSize + QSize(1, 1)));
     }
 
 private slots:
