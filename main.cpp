@@ -1,15 +1,18 @@
 #include <QApplication>
 #include <QtWidgets>
 
-static const int bufferWidth = 200, bufferHeight = 200;
 static const int lightValue = 230, darkValue = 40;
-static const int sleepInterval = 16;
-static const int windowSize = 20;
-static const int mod = 2;
 
 class Worker : public QObject {
     Q_OBJECT
 
+public:
+    enum Operation {
+        Equal,
+        NotEqual
+    };
+
+private:
     QImage &image;
     byte *buffer[2];
     int currentBuffer = 0;
@@ -18,10 +21,47 @@ class Worker : public QObject {
     bool abort = false;
     bool pause = false;
 
+    QVector<QMatrix4x4> transforms;
+    int mod = 2, sleepInterval = 16, bufferWidth = 200, bufferHeight = 200;
+    Operation operation = Equal;
+
 public:
     Worker(QImage &image)
         : image(image) {
+    }
+
+    void clearTransforms() {
+        transforms.clear();
+    }
+
+    void addTransform(QMatrix4x4 t) {
+        transforms << t;
+    }
+
+    void setBufferWidth(int bufferWidth) {
+        this->bufferWidth = bufferWidth;
+    }
+
+    void setBufferHeight(int bufferHeight) {
+        this->bufferHeight = bufferHeight;
+    }
+
+    void setMod(int mod) {
+        this->mod = mod;
+    }
+
+    void setSleepInterval(int sleepInterval) {
+        this->sleepInterval = sleepInterval;
+    }
+
+    void setOperation(Operation operation) {
+        this->operation = operation;
+    }
+
+    void initialize() {
         qsrand(QTime::currentTime().msec());
+
+        image = QImage(bufferWidth, bufferHeight, QImage::Format_RGB32);
 
         buffer[0] = new byte[bufferWidth * bufferHeight];
         buffer[1] = new byte[bufferWidth * bufferHeight];
@@ -75,36 +115,20 @@ signals:
     void renderFinished();
 
 private:
-    QPointF translateForward(QPointF p) {
-        return QPoint(p.x() - windowSize / 2, p.y() - windowSize / 2);
-    }
-
-    QPointF rotate(QPointF p) {
-        //        double a = M_PI / 3.124112312;
-
-        //        double sina = sin(a);
-        //        double cosa = cos(a);
-
-        //        return QPointF(cosa * p.x() - sina * p.y(), sina * p.x() + cosa * p.y());
-
-        return QPointF(p.x() * 1.1, p.y() * 1.1);
-    }
-
-    QPointF translateBack(QPointF p) {
-        return QPointF(p.x() + windowSize / 2, p.y() + windowSize / 2);
-    }
-
     void advance() {
         for (int x = 0; x < bufferWidth; x++)
             for (int y = 0; y < bufferHeight; y++) {
                 int c = read(x, y);
 
-                QPointF p = translateBack(rotate(translateForward(QPointF(x, y))));
+                QVector3D p(x, y, 1);
 
-                if (c != read(p.x(), p.y()))
-                    write(x, y, qrand() % mod);
+                for (auto &t : transforms)
+                    p = t.map(p);
+
+                if (c == read(p.x(), p.y()))
+                    write(x, y, operation == Equal ? c : qrand() % mod);
                 else
-                    write(x, y, c);
+                    write(x, y, operation == NotEqual ? c : qrand() % mod);
             }
     }
 
@@ -164,6 +188,7 @@ class Widget : public QWidget {
     QImage image;
     QPixmap pixmap;
     QTimer timer;
+    Worker *worker;
 
 public:
     Widget() {
@@ -171,11 +196,12 @@ public:
         resize(size, size);
         setMinimumSize(size / 2, size / 2);
 
-        image = QImage(bufferWidth, bufferHeight, QImage::Format_RGB32);
-
         QThread *thread = new QThread;
 
-        Worker *worker = new Worker(image);
+        worker = new Worker(image);
+
+        loadPattern("pattern.json");
+        worker->initialize();
 
         connect(this, SIGNAL(randomize()), worker, SLOT(randomize()));
         connect(this, SIGNAL(togglePause()), worker, SLOT(togglePause()));
@@ -242,6 +268,47 @@ private slots:
 signals:
     void randomize();
     void togglePause();
+
+private:
+    void loadPattern(const QString &fileName) {
+        QFile file(fileName);
+        file.open(QFile::ReadOnly);
+
+        QJsonDocument doc(QJsonDocument::fromJson(file.readAll()));
+        QJsonObject obj = doc.object();
+
+        worker->setBufferWidth(obj["width"].toInt(200));
+        worker->setBufferHeight(obj["height"].toInt(200));
+
+        worker->setMod(obj["mod"].toInt(2));
+
+        QString oper = obj["operation"].toString("==");
+
+        if (oper == "==")
+            worker->setOperation(Worker::Equal);
+        else if (oper == "!=")
+            worker->setOperation(Worker::NotEqual);
+
+        worker->setSleepInterval(obj["sleep"].toInt(16));
+
+        worker->clearTransforms();
+
+        for (QJsonValue value : obj["transforms"].toArray()) {
+            QMatrix4x4 matrix;
+
+            QJsonArray matrixData = value.toArray();
+
+            for (int i = 0; i < 3; i++) {
+                QJsonArray row = matrixData[i].toArray();
+
+                for (int j = 0; j < 3; j++) {
+                    matrix(i, j) = row[j].toDouble();
+                }
+            }
+
+            worker->addTransform(matrix);
+        }
+    }
 };
 
 int main(int argc, char **argv) {
