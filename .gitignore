@@ -3,5 +3,6 @@ Makefile*
 *.user
 *.o
 *.exe
-*.moc
 pattern_generator
+debug/*.cpp
+release/*.cpp

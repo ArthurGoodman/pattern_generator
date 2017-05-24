@@ -5,4 +5,10 @@ TEMPLATE = app
 
 DEFINES += QT_DEPRECATED_WARNINGS
 
-SOURCES += main.cpp
+SOURCES += main.cpp \
+    worker.cpp \
+    widget.cpp
+
+HEADERS += \
+    worker.h \
+    widget.h
