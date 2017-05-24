@@ -12,6 +12,11 @@ public:
         NotEqual
     };
 
+    enum IndexMode {
+        Mirror,
+        Wrap
+    };
+
 private:
     QImage &image;
     byte *buffer[2];
@@ -24,6 +29,7 @@ private:
     QVector<QMatrix4x4> transforms;
     int mod = 2, sleepInterval = 16, bufferWidth = 200, bufferHeight = 200;
     Operation operation = Equal;
+    IndexMode indexMode = Mirror;
 
 public:
     Worker(QImage &image)
@@ -56,6 +62,10 @@ public:
 
     void setOperation(Operation operation) {
         this->operation = operation;
+    }
+
+    void setIndexMode(IndexMode indexMode) {
+        this->indexMode = indexMode;
     }
 
     void initialize() {
@@ -152,15 +162,33 @@ private:
     }
 
     inline int index(int x, int y) {
-        if (x < 0)
-            x = -x % bufferWidth;
-        else if (x >= bufferWidth)
-            x = bufferWidth - 1 - x % bufferWidth;
+        switch (indexMode) {
+        case Mirror:
+            if (x < 0)
+                x = -x % bufferWidth;
+            else if (x >= bufferWidth)
+                x = bufferWidth - 1 - x % bufferWidth;
 
-        if (y < 0)
-            y = -y % bufferHeight;
-        else if (y >= bufferHeight)
-            y = bufferHeight - 1 - y % bufferHeight;
+            if (y < 0)
+                y = -y % bufferHeight;
+            else if (y >= bufferHeight)
+                y = bufferHeight - 1 - y % bufferHeight;
+
+            break;
+
+        case Wrap:
+            if (x < 0)
+                x = bufferWidth - (-x % bufferWidth);
+            else if (x >= bufferWidth)
+                x = x % bufferWidth;
+
+            if (y < 0)
+                y = bufferHeight - (-y % bufferHeight);
+            else if (y >= bufferHeight)
+                y = y % bufferHeight;
+
+            break;
+        }
 
         return y * bufferWidth + x;
     }
@@ -288,6 +316,13 @@ private:
             worker->setOperation(Worker::Equal);
         else if (oper == "!=")
             worker->setOperation(Worker::NotEqual);
+
+        QString index = obj["index"].toString("mirror");
+
+        if (index == "mirror")
+            worker->setIndexMode(Worker::Mirror);
+        else if (index == "wrap")
+            worker->setIndexMode(Worker::Wrap);
 
         worker->setSleepInterval(obj["sleep"].toInt(16));
 
