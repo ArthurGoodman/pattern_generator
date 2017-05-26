@@ -1,0 +1,15 @@
+{
+    "width": 200,
+    "height": 200,
+    "mod": 2,
+    "operation": "==",
+    "index": "mirror",
+    "sleep": 16,
+    "transforms": [
+        [
+            [1, 0, -25],
+            [0, 1, -25],
+            [0, 0, 1]
+        ]
+    ]
+}

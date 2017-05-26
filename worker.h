@@ -19,7 +19,7 @@ public:
     };
 
 private:
-    QImage &image;
+    QImage image;
     byte *buffer[2];
     int currentBuffer = 0;
 
@@ -33,31 +33,21 @@ private:
     IndexMode indexMode = Mirror;
 
 public:
-    Worker(QImage &image);
-
-    void clearTransforms();
-
-    void addTransform(QMatrix4x4 t);
-
-    void setBufferWidth(int bufferWidth);
-    void setBufferHeight(int bufferHeight);
-    void setMod(int mod);
-    void setSleepInterval(int sleepInterval);
-    void setOperation(Operation operation);
-    void setIndexMode(IndexMode indexMode);
-
-    void initialize();
+    Worker();
 
 public slots:
     void randomize();
     void run();
     void finish();
     void togglePause();
+    void loadPattern(const QString &fileName);
 
 signals:
-    void renderFinished();
+    void renderFinished(const QImage &image);
 
 private:
+    void initialize();
+
     void advance();
     void render();
 

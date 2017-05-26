@@ -2,19 +2,21 @@
 
 Widget::Widget() {
     int size = qMin(qApp->desktop()->width(), qApp->desktop()->height()) * 0.7;
+
     resize(size, size);
     setMinimumSize(size / 2, size / 2);
 
+    setAcceptDrops(true);
+
     QThread *thread = new QThread;
 
-    worker = new Worker(image);
-
-    loadPattern("pattern.json");
-    worker->initialize();
+    worker = new Worker;
+    worker->loadPattern(lastPatternFileName = "default.json");
 
     connect(this, SIGNAL(randomize()), worker, SLOT(randomize()));
     connect(this, SIGNAL(togglePause()), worker, SLOT(togglePause()));
-    connect(worker, SIGNAL(renderFinished()), this, SLOT(updatePixmap()));
+    connect(this, SIGNAL(loadPattern(QString)), worker, SLOT(loadPattern(QString)));
+    connect(worker, SIGNAL(renderFinished(QImage)), this, SLOT(updatePixmap(QImage)));
     connect(thread, SIGNAL(started()), worker, SLOT(run()));
 
     worker->moveToThread(thread);
@@ -26,6 +28,18 @@ Widget::Widget() {
 }
 
 Widget::~Widget() {
+}
+
+void Widget::dragEnterEvent(QDragEnterEvent *e) {
+    if (e->mimeData()->hasFormat("text/uri-list"))
+        e->acceptProposedAction();
+}
+
+void Widget::dropEvent(QDropEvent *e) {
+    emit loadPattern(lastPatternFileName = e->mimeData()->urls().first().toLocalFile());
+
+    activateWindow();
+    raise();
 }
 
 void Widget::keyPressEvent(QKeyEvent *e) {
@@ -44,6 +58,10 @@ void Widget::keyPressEvent(QKeyEvent *e) {
 
     case Qt::Key_Space:
         emit togglePause();
+        break;
+
+    case Qt::Key_F5:
+        emit loadPattern(lastPatternFileName);
         break;
     }
 }
@@ -68,53 +86,6 @@ void Widget::paintEvent(QPaintEvent *) {
     p.drawPixmap(rect().center() - QPoint(newSize.width(), newSize.height()) / 2, pixmap.scaled(newSize + QSize(1, 1)));
 }
 
-void Widget::updatePixmap() {
+void Widget::updatePixmap(const QImage &image) {
     pixmap = QPixmap::fromImage(image);
-}
-
-void Widget::loadPattern(const QString &fileName) {
-    QFile file(fileName);
-    file.open(QFile::ReadOnly);
-
-    QJsonDocument doc(QJsonDocument::fromJson(file.readAll()));
-    QJsonObject obj = doc.object();
-
-    worker->setBufferWidth(obj["width"].toInt(200));
-    worker->setBufferHeight(obj["height"].toInt(200));
-
-    worker->setMod(obj["mod"].toInt(2));
-
-    QString oper = obj["operation"].toString("==");
-
-    if (oper == "==")
-        worker->setOperation(Worker::Equal);
-    else if (oper == "!=")
-        worker->setOperation(Worker::NotEqual);
-
-    QString index = obj["index"].toString("mirror");
-
-    if (index == "mirror")
-        worker->setIndexMode(Worker::Mirror);
-    else if (index == "wrap")
-        worker->setIndexMode(Worker::Wrap);
-
-    worker->setSleepInterval(obj["sleep"].toInt(16));
-
-    worker->clearTransforms();
-
-    for (QJsonValue value : obj["transforms"].toArray()) {
-        QMatrix4x4 matrix;
-
-        QJsonArray matrixData = value.toArray();
-
-        for (int i = 0; i < 3; i++) {
-            QJsonArray row = matrixData[i].toArray();
-
-            for (int j = 0; j < 3; j++) {
-                matrix(i, j) = row[j].toDouble();
-            }
-        }
-
-        worker->addTransform(matrix);
-    }
 }

@@ -1,9 +1,4 @@
 {
-    "width": 200,
-    "height": 200,
-    "mod": 2,
-    "operation": "==",
-    "index": "mirror",
     "sleep": 0,
     "transforms": [
         [

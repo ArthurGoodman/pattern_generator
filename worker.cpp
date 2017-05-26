@@ -1,50 +1,7 @@
 #include "worker.h"
 
-Worker::Worker(QImage &image)
-    : image(image) {
-}
-
-void Worker::clearTransforms() {
-    transforms.clear();
-}
-
-void Worker::addTransform(QMatrix4x4 t) {
-    transforms << t;
-}
-
-void Worker::setBufferWidth(int bufferWidth) {
-    this->bufferWidth = bufferWidth;
-}
-
-void Worker::setBufferHeight(int bufferHeight) {
-    this->bufferHeight = bufferHeight;
-}
-
-void Worker::setMod(int mod) {
-    this->mod = mod;
-}
-
-void Worker::setSleepInterval(int sleepInterval) {
-    this->sleepInterval = sleepInterval;
-}
-
-void Worker::setOperation(Worker::Operation operation) {
-    this->operation = operation;
-}
-
-void Worker::setIndexMode(Worker::IndexMode indexMode) {
-    this->indexMode = indexMode;
-}
-
-void Worker::initialize() {
+Worker::Worker() {
     qsrand(QTime::currentTime().msec());
-
-    image = QImage(bufferWidth, bufferHeight, QImage::Format_RGB32);
-
-    buffer[0] = new byte[bufferWidth * bufferHeight];
-    buffer[1] = new byte[bufferWidth * bufferHeight];
-
-    randomize();
 }
 
 void Worker::randomize() {
@@ -88,6 +45,64 @@ void Worker::togglePause() {
     pause = !pause;
 }
 
+void Worker::loadPattern(const QString &fileName) {
+    QFile file(fileName);
+    file.open(QFile::ReadOnly);
+
+    QJsonDocument doc(QJsonDocument::fromJson(file.readAll()));
+    QJsonObject obj = doc.object();
+
+    bufferWidth = obj["width"].toInt(200);
+    bufferHeight = obj["height"].toInt(200);
+
+    mod = obj["mod"].toInt(2);
+
+    QString str = obj["operation"].toString("==");
+
+    if (str == "==")
+        operation = Worker::Equal;
+    else if (str == "!=")
+        operation = Worker::NotEqual;
+
+    str = obj["index"].toString("mirror");
+
+    if (str == "mirror")
+        indexMode = Worker::Mirror;
+    else if (str == "wrap")
+        indexMode = Worker::Wrap;
+
+    sleepInterval = obj["sleep"].toInt(16);
+
+    transforms.clear();
+
+    for (QJsonValue value : obj["transforms"].toArray()) {
+        QMatrix4x4 matrix;
+
+        QJsonArray matrixData = value.toArray();
+
+        for (int i = 0; i < 3; i++) {
+            QJsonArray row = matrixData[i].toArray();
+
+            for (int j = 0; j < 3; j++) {
+                matrix(i, j) = row[j].toDouble();
+            }
+        }
+
+        transforms << matrix;
+    }
+
+    initialize();
+}
+
+void Worker::initialize() {
+    image = QImage(bufferWidth, bufferHeight, QImage::Format_RGB32);
+
+    buffer[0] = new byte[bufferWidth * bufferHeight];
+    buffer[1] = new byte[bufferWidth * bufferHeight];
+
+    randomize();
+}
+
 void Worker::advance() {
     for (int x = 0; x < bufferWidth; x++)
         for (int y = 0; y < bufferHeight; y++) {
@@ -121,7 +136,7 @@ void Worker::render() {
             bits[index(x, y) * 4 + 3] = 255;
         }
 
-    emit renderFinished();
+    emit renderFinished(image);
 }
 
 int Worker::index(int x, int y) {

@@ -7,10 +7,11 @@
 class Widget : public QWidget {
     Q_OBJECT
 
-    QImage image;
     QPixmap pixmap;
     QTimer timer;
     Worker *worker;
+
+    QString lastPatternFileName;
 
 public:
     Widget();
@@ -18,16 +19,16 @@ public:
     virtual ~Widget();
 
 protected:
+    void dragEnterEvent(QDragEnterEvent *e);
+    void dropEvent(QDropEvent *e);
     void keyPressEvent(QKeyEvent *e);
     void paintEvent(QPaintEvent *);
 
 private slots:
-    void updatePixmap();
+    void updatePixmap(const QImage &image);
 
 signals:
     void randomize();
     void togglePause();
-
-private:
     void loadPattern(const QString &fileName);
 };
